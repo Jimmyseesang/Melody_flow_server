@@ -4,6 +4,7 @@ const cors = require('cors')
 
 const adminRoute = require('./routes/adminRoutes')
 const userRoute = require('./routes/userRoutes')
+const authRoute = require('./routes/pageRoutes')
 
 const app = express()
 
@@ -12,6 +13,7 @@ app.use(cors())
 
 app.use('/user', userRoute)
 app.use('/admin',adminRoute)
+app.use('/auth', authRoute)
 
 connectDB()
 

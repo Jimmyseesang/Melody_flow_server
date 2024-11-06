@@ -19,7 +19,7 @@ const register = async (req, res) => {
             email,
             name,
             password,
-            rold: 'user'
+            role: 'user'
         })
 
         newUser.save()
@@ -51,7 +51,7 @@ const login = async (req, res) => {
         const isPasswordCurrect = await bcryptjs.compare(password, user.password)
         if(!isPasswordCurrect) return res.status(404).json({message: 'Email or password incurrect'})
 
-        const token = jwt.sign({id: user._id, rold: user.rold}, process.env.SECRET_JWT_KEY, {expiresIn: '24h'})
+        const token = jwt.sign({id: user._id, role: user.role}, process.env.SECRET_JWT_KEY, {expiresIn: '24h'})
 
         return res.status(200).json({
             message: 'Login success',
