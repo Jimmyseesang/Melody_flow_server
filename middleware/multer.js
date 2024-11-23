@@ -15,6 +15,17 @@ const storage = multer.diskStorage({
     }
 })
 
-const uploadFile = multer({storage})
+const profileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, './public/userProfiles')
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+})
 
-module.exports = {uploadFile}
+const uploadFile = multer({storage})
+const userProfile = multer({storage: profileStorage})
+
+
+module.exports = {uploadFile, userProfile}

@@ -7,8 +7,10 @@ const musicSchema = mongoose.Schema({
     audioUrl: String,
     coverUrl: String,
     like: Number,
+    createAt: { type: Date, default: Date.now },
+    updateAt: { type: Date, default: Date.now }
 })
 
 const Music = mongoose.model('music', musicSchema)
 
-module.exports = Music
+module.exports = Music  
