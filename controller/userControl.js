@@ -1,10 +1,13 @@
 const jwt = require('jsonwebtoken')
 const bcryptjs = require('bcryptjs')
-const User = require('../models/userModel')
 require('dotenv').config()
 
 const fs = require('fs')
 const path = require('path')
+const User = require('../models/userModel')
+const Playlist = require('../models/PlaylistModel')
+const Music = require('../models/musicModel')
+const { title } = require('process')
 
 const register = async (req, res) => {
 
@@ -24,7 +27,7 @@ const register = async (req, res) => {
             role: 'user'
         })
 
-        newUser.save()
+        await newUser.save()
 
         res.status(200).json({
             message: 'Register success',
@@ -82,7 +85,7 @@ const getProfile = async (req, res) => {
         const verifyToken = jwt.verify(token, process.env.SECRET_JWT_KEY)
         const id = verifyToken.id
 
-        const user = await User.findOne({ _id: id })
+        const user = await User.findOne({ _id: id }).populate('playlist').populate('like')
 
         if (!user) {
             return res.status(404).json({
@@ -96,7 +99,6 @@ const getProfile = async (req, res) => {
 
     }
     catch (err) {
-        console.log('error verifing token!!!')
         res.status(500).json({
             message: 'access denied'
         })
@@ -107,13 +109,13 @@ const getProfile = async (req, res) => {
 const uploadProfile = async (req, res) => {
 
     const id = req.id
-    
+
     if (!req.files || !req.files.image || req.files.image.length === 0) {
         return res.status(400).json({ message: 'No file uploaded' })
     }
 
     const file = req.files
-        
+
     try {
         const user = await User.findOne({ _id: id })
 
@@ -130,13 +132,13 @@ const uploadProfile = async (req, res) => {
 
         user.profile = file.image[0].filename
 
-        user.save()
+        await user.save()
 
         res.status(201).json({
             message: 'Add profile success'
         })
     }
-    catch(err) {
+    catch (err) {
         console.log(err)
         res.status(500).json({
             message: 'Server Error'
@@ -145,4 +147,68 @@ const uploadProfile = async (req, res) => {
 
 }
 
-module.exports = { register, login, getProfile, uploadProfile }
+const searchMusic = async (req, res) => {
+
+    const {word} = req.body
+
+    try {
+
+        const music = await Music.find({title: { $regex: word, $options: 'i' } })
+
+        res.status(200).json({
+            music
+        })
+    }
+    catch(err) {
+        res.status(500).json({
+            message: 'server error'
+        })
+    }
+}
+
+const searchGenre = async (req, res) => {
+
+    try {
+
+        const {genre} = req.body
+
+        const musics = await Music.find()
+        
+        const filterMusics = musics.filter(music => {
+            const genres = music.genre.split(',').map(e => e.trim())
+            return genres.includes(genre)
+        })
+        
+
+        res.status(200).json({
+            filterMusics
+        })
+    }
+    catch(err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'server error'
+        })
+    }
+
+}
+
+const artistMusic = async (req, res) => {
+    try {
+
+        const {name} = req.params
+
+        const musics = await Music.find({artist: name})
+
+        res.status(200).json({
+            musics
+        })
+    }
+    catch(err) {
+        res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+module.exports = { register, login, getProfile, uploadProfile, searchMusic, searchGenre, artistMusic }

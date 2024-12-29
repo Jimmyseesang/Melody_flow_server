@@ -1,8 +1,12 @@
-
 const Music = require('../models/musicModel')
+const fs = require('fs')
+const path = require('path')
+const Album = require('../models/albumModel')
+const Artist = require('../models/artistModel')
+const { default: mongoose } = require('mongoose')
 
 // AddMusic
-const addMusic = (req, res) => {
+const addMusic = async (req, res) => {
 
     if (req.files) {
 
@@ -19,7 +23,7 @@ const addMusic = (req, res) => {
             updateAt: Date.now(),
         })
 
-        newMusic.save()
+        await newMusic.save()
 
         return res.status(200).json({
             message: 'Save music success',
@@ -43,18 +47,34 @@ const deleteMusic = async (req, res) => {
                 return res.status(500).json({ message: 'params not found' });
             }
 
-            const result = await Music.deleteOne({ _id: params });
+            const result = await Music.findByIdAndDelete(params)
+            const filePath = path.join(__dirname, '../public/music', result.audioUrl)
+            const imagePath = path.join(__dirname, '../public/images', result.coverUrl)
 
-            if (result.deletedCount > 0) {
-                return res.status(200).json({
-                    message: 'delete success',
-                });
-            } else {
-                return res.status(404).json({
-                    message: 'Music not found',
-                    params: req.params.id,
-                });
-            }
+            fs.unlink(filePath, (err) => {
+                if (err) {
+                    console.log('Delete file fail')
+                    console.log(err)
+                } else {
+                    console.log('Delete file success')
+                }
+            })
+
+            fs.unlink(imagePath, (err) => {
+                if (err) {
+                    console.log('Delete image fail')
+                    console.log(err)
+                } else {
+                    console.log('Delete image success')
+                }
+            })
+
+            console.log(result)
+            console.log(imagePath)
+            return res.status(200).json({
+                message: 'delete success',
+            });
+
         } catch (err) {
             return res.status(500).json({
                 message: 'server error',
@@ -69,47 +89,269 @@ const deleteMusic = async (req, res) => {
 
 }
 
-// EditMusic
-const editMusic = async (req, res) => {
-    if(req.isAdmin) {
-        try{
+const addAlbum = async (req, res) => {
 
+    const {title, artistId} = req.body
+    const {image} = req.files
 
-            const id = req.params.id
-            const {title, artist, genre} = req.body
+    try {
 
-            const music = await Music.findByIdAndUpdate(id, {
-                title,
-                artist,
-                genre,
-                updateAt: Date.now()
-            })
-
-            if(music){
-                return res.status(200).json({
-                    message: 'Update success',
-                    music
-                })
-            }
-            else {
-                return res.status(404).json({
-                    message: 'music not found'
-                })
-            }
-
-        }catch(err){
-            res.status(500).json({
-                message: 'server error',
-            })
-            console.log(err)   
+        if (!mongoose.Types.ObjectId.isValid(artistId)) {
+            return res.status(400).json({
+                message: 'Invalid ID format',
+            });
         }
-    }else{
-        res.status(403).json({
-            message: 'Access denied'
+
+        if(!image) {
+            return res.status(404).json({
+                message: 'field image is empty'
+            })
+        }
+
+        const imagePath = path.join(__dirname, '../public/albums', image[0].filename)
+
+        const artist = await Artist.findOne({_id: artistId})
+        if(!artist) {
+            fs.unlink(imagePath, (err) => {
+                if(err) {
+                    console.log(err)
+                }
+            })
+            return res.status(404).json({
+                message: 'Artist not founed'
+            })
+        }
+
+        const album = await Album.findOne({title})
+        if(album) {
+            fs.unlink(imagePath, (err) => {
+                if(err) {
+                    console.log(err)
+                }
+            })
+            return res.status(409).json({
+                message: 'This album name already exists'
+            })
+        }
+
+        const newAlbum = new Album({
+            title,
+            artist: artistId,
+            image: image[0].filename
+        })
+
+        await newAlbum.save()
+        await artist.albums.push(newAlbum._id)
+        await artist.save()
+        
+        res.status(200).json({
+            message: 'Upload Album success',
+        })
+    }
+    catch(err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'Server Error'
         })
     }
 }
 
 
+const deleteAlbum = async (req, res) => {
 
-module.exports = { addMusic, deleteMusic, editMusic }
+    const {id} = req.params
+    
+    try {
+
+        if(!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: 'Invalid ID format'
+            })
+        }
+
+        const album = await Album.findById(id)
+
+        if(!album) {
+            return res.status(404).json({
+                message: 'Album not founded'
+            })
+        }
+
+        const artistId = album.artist
+
+        const artist = await Artist.findById(artistId)
+        if(!artist) {
+            return res.status(404).json({
+                message: 'Artist not founded'
+            })
+        }
+        
+        const albumInArtist = artist.albums.filter(album => album.toString() !== id)
+
+        await album.deleteOne()
+
+        artist.albums = albumInArtist
+
+        await artist.save()
+
+        const coverPath = path.join(__dirname, '../public/albums', album.image)
+
+        fs.unlink(coverPath, (err) => {
+            if(err) {
+                console.log(err)
+            }
+        })
+        
+        res.status(200).json({
+            deleteAlbum: album,
+            updateArtist: artist,
+            message: 'delete album success'
+        })
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+const addArtist = async (req, res) => {
+    try {
+
+        const { name } = req.body
+        const { image } = req.files
+
+        if (!name || !image) {
+            return res.status(400).json({
+                message: "field name or image is empty"
+            })
+        }
+
+        const artistAleardyExit = await Artist.findOne({ name })
+
+        if (artistAleardyExit) {
+            return res.status(409).json({
+                message: 'This music already exists'
+            })
+        }
+
+        const newArtist = new Artist({
+            name,
+            image: image[0].filename
+        })
+
+        await newArtist.save()
+
+
+
+        res.status(201).json({
+            message: 'Add artist success',
+            newArtist
+        })
+    }
+    catch (err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+const deleteArtist = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: 'Invalid ID format',
+            });
+        }
+
+        // ตรวจสอบว่ามี id หรือไม่
+        if (!id) {
+            return res.status(400).json({
+                message: 'ID is required',
+            });
+        }
+
+        // ค้นหาและลบศิลปิน
+        const artist = await Artist.findByIdAndDelete(id);
+        if (artist) {
+            const imagePath = path.join(__dirname, '../public/artistImage', artist.image)
+
+            fs.unlink(imagePath, (err) => {
+                if (err) {
+                    console.log(err)
+                }
+            })
+        }
+
+        // ถ้าไม่พบศิลปิน
+        if (!artist) {
+            return res.status(404).json({
+                message: 'Artist not found',
+            });
+        }
+
+        // ถ้าลบสำเร็จ
+        res.status(200).json({
+            message: 'Artist deleted successfully',
+            artist,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: 'Server Error',
+        });
+    }
+};
+
+const getArtistAll = async (req, res) => {
+    try {
+
+        const artists = await Artist.find()
+
+        res.status(200).json({
+            artists
+        })
+    }
+    catch (err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+const getArtistById = async (req, res) => {
+    try {
+
+        const { id } = req.params
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: 'Invalid ID format',
+            });
+        }
+
+        if (!id) {
+            return res.status(400).json({
+                message: 'ID is required',
+            });
+        }
+
+        const artist = await Artist.findOne({ _id: id }).populate('albums')
+
+        res.status(200).json({
+            artist,
+            message: 'good'
+        })
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+module.exports = { addMusic, deleteMusic, addAlbum, deleteAlbum, addArtist, deleteArtist, getArtistAll, getArtistById }

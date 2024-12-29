@@ -24,8 +24,37 @@ const profileStorage = multer.diskStorage({
     }
 })
 
+const playlistImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, './public/playlistImage')
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+})
+
+const albumsImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, './public/albums')
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+})
+
+const artistImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, './public/artistImage')
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+})
+
 const uploadFile = multer({storage})
 const userProfile = multer({storage: profileStorage})
+const playlistFile = multer({storage: playlistImageStorage})
+const albumImage = multer({storage: albumsImageStorage})
+const artistImage = multer({storage: artistImageStorage})
 
-
-module.exports = {uploadFile, userProfile}
+module.exports = {uploadFile, userProfile, playlistFile, albumImage, artistImage}
