@@ -6,7 +6,7 @@ const musicSchema = mongoose.Schema({
     genre: String,
     audioUrl: String,
     coverUrl: String,
-    like: Number,
+    like: [{type: mongoose.Schema.Types.ObjectId, ref: 'users'}],
     createAt: { type: Date, default: Date.now },
     updateAt: { type: Date, default: Date.now }
 })

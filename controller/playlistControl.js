@@ -59,11 +59,11 @@ const addToPlaylist = async (req, res) => {
             return res.status(404).json({ message: 'Music not found' })
         }
 
-        if (playlist.music.includes(music._id)) {
+        if (playlist.musics.includes(music._id)) {
             return res.status(409).json({ message: 'Music already exists in the playlist' })
         }
 
-        playlist.music.push(music._id)
+        playlist.musics.push(music._id)
 
         await playlist.save()
 
@@ -95,7 +95,7 @@ const getPlaylist = async (req, res) => {
     }
 
     try {
-        const playlist = await Playlist.findOne({ _id: id }).populate('music');
+        const playlist = await Playlist.findOne({ _id: id }).populate('musics');
 
         if (!playlist) {
             return res.status(404).json({ message: 'Playlist not found' });
@@ -155,7 +155,7 @@ const deletePlaylist = async (req, res) => {
         const permission = user._id.toString() === playlist.user.toString() ? true : false
         if (!permission) return res.status(403).json({ message: 'access denide' })
 
-        const upDatePlaylist = user.playlist.filter(playlist => playlist.toString() !== playlistId)
+        const upDatePlaylist = user.playlist.filter(playlist => playlist.toString() !== playlistId)()
 
         user.playlist = upDatePlaylist
         await user.save()

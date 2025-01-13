@@ -7,7 +7,7 @@ const storage = multer.diskStorage({
         }else if(file.mimetype.startsWith('audio/mpeg')) {
             cb(null, './public/music')
         }else {
-            cb(new Error('invalid file type'))
+            cb(new Error('Unknown file extension'))
         }
     },
     filename: (req, file, cb) => {
