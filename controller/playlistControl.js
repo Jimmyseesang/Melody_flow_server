@@ -3,6 +3,8 @@ const User = require('../models/userModel')
 const Music = require('../models/musicModel')
 
 const mongoose = require('mongoose')
+const path = require('path')
+const fs = require('fs')
 
 const addPlaylist = async (req, res) => {
 
@@ -102,8 +104,7 @@ const getPlaylist = async (req, res) => {
         }
 
         res.status(200).json({
-            message: 'Good',
-            playlist,
+            playlist
         });
     } catch (err) {
         console.log(err);
@@ -114,24 +115,43 @@ const getPlaylist = async (req, res) => {
 const deleteFromPlaylist = async (req, res) => {
 
     const id = req.id
-
-    const { musicId } = req.params.id
-
-    if (!musicId) return res.status(400).json({ message: 'music id not found' })
+    const { playlistID, musicID } = req.params
 
     try {
 
-        const user = await User.findOne({ _id: id })
+        if(!mongoose.Types.ObjectId.isValid(playlistID) || !mongoose.Types.ObjectId.isValid(musicID)) {
+            return res.status(400).json({
+                message: 'Invalid ID format'
+            })
+        }
 
-        res.status(200).json({
-            message: 'Good',
-            user,
-            musicId
+        const user = await User.findById(id)
+        const playlist = await Playlist.findById(playlistID)
+        if(!playlist) return res.status(404).json({message: "Playlist not found."})
+
+        if(user._id.toString() != playlist.user.toString()) return res.status(400).json({message: "You don't own this playlist."})
+
+        const music = await Music.findById(musicID)
+        if(!music) return res.status(404).json({messgae: "Music not found."})
+
+        const isMusicInPlaylist = playlist.musics.some(music => music == musicID)
+        if(!isMusicInPlaylist) {
+            return res.status(404).json({
+                message: "This music isn't in this playlist."
+            })
+        }
+        console.log(playlist.musics)
+        playlist.musics = playlist.musics.filter(music => music != musicID)
+        await playlist.save()
+
+        res.status(200).json({            
+            message: `Delete ${music.title} from ${playlist.title}`
         })
     }
     catch (err) {
+        console.log(err)
         res.status(500).json({
-            message: 'failed'
+            message: 'Server Error'
         })
     }
 
@@ -152,10 +172,18 @@ const deletePlaylist = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' })
         if (!playlist) return res.status(404).json({ message: 'Playlist not found' })
 
+        const playlistImagePath = path.join(__dirname, '../public/playlistImage', playlist.image)
+
+        fs.unlink(playlistImagePath, err => {
+            if(err) {
+                console.log(err)
+            }
+        })
+
         const permission = user._id.toString() === playlist.user.toString() ? true : false
         if (!permission) return res.status(403).json({ message: 'access denide' })
 
-        const upDatePlaylist = user.playlist.filter(playlist => playlist.toString() !== playlistId)()
+        const upDatePlaylist = user.playlist.filter(playlist => playlist.toString() !== playlistId)
 
         user.playlist = upDatePlaylist
         await user.save()
@@ -174,5 +202,55 @@ const deletePlaylist = async (req, res) => {
     }
 }
 
-module.exports = { addPlaylist, addToPlaylist, getPlaylist, deleteFromPlaylist, deletePlaylist }
+const changePlaylistImage = async (req, res) => {
+
+    const id = req.id
+    const {playlistID} = req.params
+    const image = req.files.image[0]
+
+    try {
+
+        if(!mongoose.Types.ObjectId.isValid(playlistID)) {
+            return res.status(400).json({
+                message: 'Invalid ID format'
+            })
+        }
+
+        const user = await User.findById(id)
+        const userPlaylist = user.playlist
+
+        const isHavePlaylist = userPlaylist.some(e => e == playlistID)
+
+        if(!isHavePlaylist) {
+            return res.status(400).json({
+                message: "You don't have this playlist"
+            })
+        }
+
+        const playlist = await Playlist.findById(playlistID)
+
+        const playlistImagePath = path.join(__dirname, '../public/playlistImage', playlist.image)
+
+        fs.unlink(playlistImagePath, err => {
+            if(err) {
+                console.log(err)
+            }
+        })
+
+        playlist.image = image.filename
+        await playlist.save()
+
+        return res.status(200).json({
+            message: 'Change playlist image success'
+        })
+
+    }catch(err) {
+        console.log(err)
+        return res.status(500).json({
+            message: 'Server Error'
+        })
+    }
+}
+
+module.exports = { addPlaylist, addToPlaylist, getPlaylist, deleteFromPlaylist, deletePlaylist, changePlaylistImage }
 

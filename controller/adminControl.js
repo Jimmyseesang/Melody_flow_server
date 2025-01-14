@@ -222,19 +222,36 @@ const deleteArtist = async (req, res) => {
             }
         })
 
-        // delete artist
+        delete artist
         await artist.deleteOne()
 
         // delete musics
         const musics = await Music.find({artist: artist.name})
-        const musicIds = musics.map(music => console.log(music.title))
-        await Music.deleteMany({artist: artist.name})
+        musics.map(e => {
+            const musicImagePath = path.join(__dirname, '../public/images', e.coverUrl)
+            const musicAudioPath = path.join(__dirname, '../public/music', e.audioUrl)
+
+            fs.unlink(musicImagePath, err => {
+                if(err) {
+                    console.log(err)
+                }
+            })
+
+            fs.unlink(musicAudioPath, err => {
+                if(err) {
+                    console.log(err)
+                }
+            })
+
+        })
+        const musicIds = musics.map(music => music._id)
+        await Music.deleteMany({artist: artist.name})    
 
         // delete from user like
         await User.updateMany(
             {like: {$in: musicIds}},
             {$pull: {like: {$in: musicIds}}}
-        ) 
+        )
 
         // delete from user playlist
         await Playlist.updateMany(
